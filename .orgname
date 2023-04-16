@@ -1,0 +1,7 @@
+KB="https://kb.example.com"
+HELPDESK_EMAIL="help@example.com"
+HELPDESK_PHONE="000-123-4567"
+NETSYS="zendeskadmin@example.com"
+ORG="example.com"
+REQUESTS="https://[example].zendesk.com/api/v2/requests.json"
+TEST_HASH="0aBc123DeF"

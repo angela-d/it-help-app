@@ -1,0 +1,41 @@
+#!/bin/bash
+source ~/.orgname
+TMPLOG=/tmp/it-app.log
+DIR="$(cd "$(/usr/bin/dirname -- "$0")"; cd ../Resources; pwd)"
+ICON="$DIR/AppIcon.icns"
+USERSNAME="$2"
+ACTIVE_USER="$(stat -f%Su /dev/console)@$ORG"
+SUBJECT="$1 Requested Assistance from $3"
+MSG_DETAIL="$(echo $7 | sed 's/[^a-zA-Z0-9.? ]//g' | sed 's/button returnedSubmit as a Ticket text returned//g')"
+IPS=$(/sbin/ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{ print $2 }' | tr '\r\n' ' ')
+
+# generate a log entry
+function logmsg() {
+  # $1 = severity
+  # $2 = message
+  echo -e "$(date)\t$1\t$2" >> "$TMPLOG"
+}
+
+logmsg "INFO" "Ticket submission page ran"
+logmsg "INFO" "Args passed: $1 $2"
+
+MSG_BODY="Asset Tag: $3\nFree Space: $4 GB\nUptime: $5\nIP(s): $IPS\n\n$MSG_DETAIL"
+logmsg "DATA" "Payload: $MSG_BODY"
+function alert {
+  osascript -e 'display dialog "'"$2\n\n$3"'" with icon POSIX file "'"$ICON"'" with title "'"$1"'" buttons {"Got it!"} default button "Got it!"'
+}
+
+RESPONSE=$(curl "$REQUESTS" -d '{"request":  {"subject": "'"$SUBJECT"'", "requester": {"locale_id": 8, "name": "'"$USERSNAME"'", "email": "'"$ACTIVE_USER"'"}, "comment": {"body": "'"$MSG_BODY"'"}}}' -v -u "$NETSYS/token:$TEST_HASH" -X POST -H "Content-Type: application/json")
+logmsg "INFO" "Submission response: $RESPONSE"
+
+RESPONSE_MSG=$(sed -e's/://; s/-//;' <<< $RESPONSE | sed 's/[^a-zA-Z0-9 -]//g')
+
+if [[ "$RESPONSE" =~ '"error"' ]] || [ "$RESPONSE" == "{}" ] || [ "$RESPONSE" == "" ];
+then
+  alert "Error Submitting Your Ticket" "An error occurred while submitting your ticket, $1.\n\nPlease send an email to $HELPDESK_EMAIL or visit the Helpdesk on the 5th floor, across from the elevators.\n\nPlease screenshot or mention this error to the tech assisting you, with the following info:\nAsset Tag: $3\nError Response: $RESPONSE_MSG"
+else
+  alert "Ticket Submitted Successfully" "Your ticket has been submitted, $1!\n\nOne of our techs will assist you, shortly.\n\nResponse time varies on the type of issue and individual availability.\n\nCheck your inbox for a confirmation."
+  logmsg "INFO" "Ticket submitted successfully"
+fi
+
+exit 0
